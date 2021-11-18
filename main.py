@@ -15,3 +15,4 @@ client.send_message('@Stickers', '/skip')
 client.send_message('@Stickers', 'SuperSecretCovertChannel')
 
 print('Done!')
+
