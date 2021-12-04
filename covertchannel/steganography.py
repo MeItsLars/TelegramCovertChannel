@@ -8,21 +8,12 @@ from covertchannel.cats import generate_cat
 
 
 def decode_image(path):
-    layer = 1
-    block_size = 8
-
     image = Image.open(path)
+    bits = ''.join([str((255-a)) for (r, g, b, a) in list(image.getdata())]).split('2')[0]
+    print(bits[:100])
+    data = bytes(int(bits[i: i + 8], 2) for i in range(0, len(bits), 8))
 
-    pixels = np.array([[r, g, b] for (r, g, b) in list(image.getdata())], dtype=float)
-    red = pixels[:, 0].reshape((512, 512))[:block_size, :block_size]
-    green = pixels[:, 1].reshape((512, 512))[:block_size, :block_size]
-    blue = pixels[:, 2].reshape((512, 512))[:block_size, :block_size]
-    ru, rs, rvh = np.linalg.svd(red, full_matrices=True)
-    gu, gs, gvh = np.linalg.svd(green, full_matrices=True)
-    bu, bs, bvh = np.linalg.svd(blue, full_matrices=True)
-    print('decoding')
-    print(ru)
-    print(rs)
+    return data
 
 
 def make_orthogonal(v1, v2, size):
@@ -34,46 +25,24 @@ def make_orthogonal(v1, v2, size):
     print(np.dot(v1, v2))
     return v2
 
-def encode_in_images(path, data):
-    layer = 1
-    strength = 1
-    block_size = 8
 
+def encode_in_images(path, data: bytes):
     generate_cat('./temp.webp')
     image = Image.open('./temp.webp')
-    pixels = np.array([[r, g, b] for (r, g, b) in list(image.getdata())], dtype=float)
-    red = pixels[:, 0].reshape((512, 512))[:block_size, :block_size]
-    green = pixels[:, 1].reshape((512, 512))[:block_size, :block_size]
-    blue = pixels[:, 2].reshape((512, 512))[:block_size, :block_size]
 
-    ru, rs, rvh = np.linalg.svd(red, full_matrices=True)
-    gu, gs, gvh = np.linalg.svd(green, full_matrices=True)
-    bu, bs, bvh = np.linalg.svd(blue, full_matrices=True)
+    a_channel = Image.new('L', image.size, 255)
+    a_pixels = list(a_channel.getdata())
 
-    #ru[1, layer] = 1*strength
-    #ru[:, layer] = make_orthogonal(ru[:, 0], ru[:, layer], block_size)
-    #ru[:, layer+1:] = np.full(shape=(block_size, block_size - layer - 1), fill_value=0.)
-    rs[2:] = np.full((6,), 0)
+    bitstring = ''.join(format(byte, '08b') for byte in data)
+    print(bitstring[:100])
+    bits = [int(c) for c in bitstring]
+    bits.append(2)
+    a_pixels = np.array(a_pixels) + (np.pad(bits, (0, (512*512)-len(bits)), 'constant', constant_values=(0, )) * -1)
 
-    print('encoding')
-    print(ru)
-    print(rs)
+    a_channel.putdata(a_pixels)
 
-    dred = pixels[:, 0].reshape((512, 512))
-    dred[:block_size, :block_size] = np.dot(ru * rs, rvh)
-    dgreen = pixels[:, 1].reshape((512, 512))
-    dgreen[:block_size, :block_size] = np.dot(gu * gs, gvh)
-    dblue = pixels[:, 2].reshape((512, 512))
-    dblue[:block_size, :block_size] = np.dot(bu * bs, bvh)
-
-    dpixels = list(zip(np.around(dred.ravel()).astype(int), np.around(dgreen.ravel()).astype(int),
-                       np.around(dblue.ravel()).astype(int)))
-    testpixels = list(zip(dred.ravel(), dgreen.ravel(), dblue.ravel()))
-
-
-    dimage = Image.new(image.mode, image.size)
-    dimage.putdata(dpixels)
-    dimage.save(path)
+    image.putalpha(a_channel)
+    image.save(path, **image.info)
     os.remove('./temp.webp')
 
 
@@ -88,6 +57,3 @@ def encode_in_images(path, data):
     # shutil.copyfile(image_path, os.path.join(path, os.path.basename("4.png")))
     # shutil.copyfile(image_path, os.path.join(path, os.path.basename("5.png")))
 
-
-encode_in_images('test.webp', 'test')
-decode_image('test.webp')

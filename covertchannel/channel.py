@@ -64,8 +64,8 @@ class Channel:
 
         self.client.loop.run_until_complete(self.my_pack.refresh())
         self.client.loop.run_until_complete(self.download(self.my_pack.stickers.documents[1], 'test'))
-        decode_image(path + '1.webp')
-        # TODO: iets shutil.rmtree(path)
+        print(decode_image('test.webp'))
+        shutil.rmtree(path)
 
     def close(self):
         print('[Client "' + self.client_id + '"] Closing channel...')
