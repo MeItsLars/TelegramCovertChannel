@@ -38,10 +38,11 @@ Messages are packets, that use the following packet header:
 ```
 The sequence number is a 2-byte unsigned short which represents the ID of the current message. 
 Each time a new message is transmitted, it is incremented by one.
-The content length is a 2-byte unsigned short which represents the length of the data in the message.
+The content length is a 2-byte unsigned short which represents the length of the data (in bytes) in the message.
 The message data ia a byte array which represents the rest of the data.
 It can not be longer than 3.932.156 bytes.
 The reasoning behind this number can be found in the 'Statistics' section for this protocol.
+After constructing the packet, the packet is encoded into the stickers as described in the 'Steganography' section.
 
 The first message is always sent by the party that has the lowest ID. The ID of this message should be 0.
 Only upon receiving a message is a party allowed to increment the sequence number and send a new message.
