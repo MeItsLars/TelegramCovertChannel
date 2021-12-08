@@ -1,11 +1,12 @@
 import os
 import shutil
+from stegano import lsb
 
 from telethon import TelegramClient
 from telethon.tl.functions.messages import GetAllStickersRequest, InstallStickerSetRequest, GetStickerSetRequest
 from telethon.tl.types import InputStickerSetShortName, InputStickerSetID
 
-from covertchannel.steganography import encode_in_images
+from covertchannel.steganography import encode_in_images, decode_image
 
 
 class Channel:
@@ -22,7 +23,7 @@ class Channel:
     def initialize(self):
         # Initialize channel
         print('[Client "' + self.client_id + '"] Initializing channel...')
-        self.client.loop.run_until_complete(self.client.connect())
+        self.client.start()
 
         # Create the sticker pack for the communication
         print('[Client "' + self.client_id + '"] Creating sticker pack...')
@@ -51,12 +52,19 @@ class Channel:
     def send_str(self, data: str):
         self.send(bytes(data, 'ascii'))
 
+    async def download(self, sticker, file):
+        await self.client.download_media(sticker, file=file)
+
     def send(self, data: bytes):
         self.client.loop.run_until_complete(self.my_pack.clear())
-        path = os.path.join('./', 'message_sticker_files')
+        path = os.path.join('./', 'message_sticker_files/')
         os.mkdir(path)
-        encode_in_images(path, data)
+        encode_in_images(path + '1.webp', data)
         self.client.loop.run_until_complete(self.my_pack.add_from_directory(path))
+
+        self.client.loop.run_until_complete(self.my_pack.refresh())
+        self.client.loop.run_until_complete(self.download(self.my_pack.stickers.documents[1], 'test'))
+        print(decode_image('test.webp'))
         shutil.rmtree(path)
 
     def close(self):

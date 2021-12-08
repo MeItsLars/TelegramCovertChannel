@@ -15,6 +15,6 @@ other_client_id = client_ids['client_2']
 
 channel = Channel(client_id, api_id, api_hash, other_client_id)
 url = channel.initialize()
-channel.send_str('Test')
+channel.send_str('Test message')
 input("Press enter to continue")
 channel.close()

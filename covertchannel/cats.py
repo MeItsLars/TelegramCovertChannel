@@ -9,12 +9,11 @@ from resizeimage import resizeimage
 url = "https://api.thecatapi.com/v1/images/search"
 params = {
     "size": "full",
-    "mime_types": "png"
+    "mime_types": "jpeg"
 }
 
 
-def generate_cat(path, filename: str):
-    path = os.path.join(path, filename)
+def generate_cat(path):
 
     resp = requests.get(url, params)
     data = resp.json()
