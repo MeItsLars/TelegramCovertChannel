@@ -28,17 +28,16 @@ and a one bit becomes 255.
 ### Message
 Messages are packets, that use the following packet header:
 ```
-+-------------------------------------------------+-------------------------------------------------+
-| 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 | 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 |
-+-------------------------------------------------+-------------------------------------------------+
-|                Sequence Number                  |                  Content Length                 |
-+-------------------------------------------------+-------------------------------------------------+
-\                                          Message Data                                             \
-+-------------------------------------------------+-------------------------------------------------+
++-------------------------------------------------------------------------------------------------+
+| 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 |
++-------------------------------------------------------------------------------------------------+
+|                                        Sequence Number                                          |
++-------------------------------------------------------------------------------------------------+
+\                                         Message Data                                            \
++-------------------------------------------------------------------------------------------------+
 ```
-The sequence number is a 2-byte unsigned short which represents the ID of the current message. 
+The sequence number is a 4-byte unsigned integer which represents the ID of the current message. 
 Each time a new message is transmitted, it is incremented by one.
-The content length is a 2-byte unsigned short which represents the length of the data (in bytes) in the message.
 The message data ia a byte array which represents the rest of the data.
 It can not be longer than 3.932.156 bytes.
 The reasoning behind this number can be found in the 'Statistics' section for this protocol.

@@ -1,12 +1,13 @@
 import os
 import shutil
-from stegano import lsb
+import time
 
 from telethon import TelegramClient
+from telethon.errors import StickersetInvalidError
 from telethon.tl.functions.messages import GetAllStickersRequest, InstallStickerSetRequest, GetStickerSetRequest
 from telethon.tl.types import InputStickerSetShortName, InputStickerSetID
 
-from covertchannel.steganography import encode_in_images, decode_image
+from covertchannel.steganography import encode_sticker, decode_image
 
 
 class Channel:
@@ -19,6 +20,8 @@ class Channel:
         # Create sticker packs
         self.my_pack = StickerPack(self.client, self.client_id + "_" + self.other_client_id)
         self.other_pack = StickerPack(self.client, self.other_client_id + "_" + self.client_id)
+        # Set message constants
+        self.sequence_number = 0
 
     def initialize(self):
         # Initialize channel
@@ -35,37 +38,84 @@ class Channel:
             self.client(InstallStickerSetRequest(InputStickerSetShortName(self.my_pack.id), False)))
 
         # Subscribe to the other sticker pack so we can read it
-        # TODO: Uncomment
-        # print('[Client "' + self.client_id + '"] Subscribing to other sticker pack...')
-        # attempt = 0
-        # while True:
-        #     try:
-        #         print('[Client "' + self.client_id + '"] Attempt ' + str(attempt) + '...')
-        #         self.client.loop.run_until_complete(
-        #             self.client(InstallStickerSetRequest(InputStickerSetShortName(self.other_pack.id), False)))
-        #         print('[Client "' + self.client_id + '"] Initialized channel!')
-        #         return
-        #     except StickersetInvalidError:
-        #         attempt += 1
-        #         time.sleep(5)
-
-    def send_str(self, data: str):
-        self.send(bytes(data, 'ascii'))
+        print('[Client "' + self.client_id + '"] Subscribing to other sticker pack...')
+        attempt = 0
+        while True:
+            try:
+                print('[Client "' + self.client_id + '"] Attempt ' + str(attempt) + '...')
+                self.client.loop.run_until_complete(
+                    self.client(InstallStickerSetRequest(InputStickerSetShortName(self.other_pack.id), False)))
+                print('[Client "' + self.client_id + '"] Initialized channel!')
+                return
+            except StickersetInvalidError:
+                attempt += 1
+                time.sleep(5)
 
     async def download(self, sticker, file):
         await self.client.download_media(sticker, file=file)
 
     def send(self, data: bytes):
+        # Clear the current pack
         self.client.loop.run_until_complete(self.my_pack.clear())
+
+        # Create a directory for the stickers
         path = os.path.join('./', 'message_sticker_files/')
         os.mkdir(path)
-        encode_in_images(path + '1.webp', data)
+
+        # Construct the data
+        data = self.sequence_number.to_bytes(4, 'big') + data
+
+        # Encode the data into stickers
+        # TODO: SUPPORT DATA ENCODING FOR MULTIPLE STICKERS
+        encode_sticker(os.path.join(path, '1.webp'), data)
+
+        # Transmit the data
         self.client.loop.run_until_complete(self.my_pack.add_from_directory(path))
 
-        self.client.loop.run_until_complete(self.my_pack.refresh())
-        self.client.loop.run_until_complete(self.download(self.my_pack.stickers.documents[1], 'test'))
-        print(decode_image('test.webp'))
+        # self.client.loop.run_until_complete(self.my_pack.refresh())
+        # self.client.loop.run_until_complete(self.download(self.my_pack.stickers.documents[1], './test'))
+        # print(decode_image('test.webp'))
+
+        # Delete the directory with the stickers
         shutil.rmtree(path)
+
+    def receive(self):
+        path = os.path.join('./', 'message_sticker_files/')
+        os.mkdir(path)
+        while True:
+            print('Attempting to fetch data...')
+
+            # Fetch the sticker pack
+            self.client.loop.run_until_complete(self.other_pack.refresh())
+
+            # Check if the sticker pack actually contains data
+            if len(self.other_pack.stickers.documents) > 1:
+                self.client.loop.run_until_complete(self.download(
+                    self.other_pack.stickers.documents[1], './message_sticker_files/1'))
+
+                # Decode the first sticker of the received sticker pack
+                content = decode_image('./message_sticker_files/1.webp')
+                received_sequence_number = int.from_bytes(content[:4], 'big')
+                result = content[4:]
+
+                # Check if the newly received data is of a new message
+                if received_sequence_number >= self.sequence_number:
+                    # Decode the received data
+                    for i in range(2, len(self.other_pack.stickers.documents)):
+                        self.client.loop.run_until_complete(self.download(
+                            self.other_pack.stickers.documents[1], './message_sticker_files/' + str(i)))
+
+                        result += decode_image('./message_sticker_files/' + str(i) + '.webp')
+
+                    # Increment our own sequence number
+                    self.sequence_number = received_sequence_number + 1
+                    break
+
+            # Wait 5 seconds
+            time.sleep(5)
+
+        shutil.rmtree(path)
+        return result
 
     def close(self):
         print('[Client "' + self.client_id + '"] Closing channel...')
@@ -89,10 +139,6 @@ class StickerPack:
                                     file=os.path.join(os.path.dirname(__file__), 'resources/pack_image.png'),
                                     force_document=True)
         await self.client.send_message('@Stickers', '😀')
-        await self.client.send_file('@Stickers',
-                                    file=os.path.join(os.path.dirname(__file__), 'resources/pack_image.png'),
-                                    force_document=True)
-        await self.client.send_message('@Stickers', '😃')
         await self.client.send_message('@Stickers', '/publish')
         await self.client.send_message('@Stickers', '/skip')
         await self.client.send_message('@Stickers', self.id)

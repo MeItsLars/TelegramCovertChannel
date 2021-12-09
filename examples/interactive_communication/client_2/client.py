@@ -15,3 +15,9 @@ other_client_id = client_ids['client_1']
 
 channel = Channel(client_id, api_id, api_hash, other_client_id)
 channel.initialize()
+
+data = channel.receive()
+print(data)
+
+input("Press enter to continue")
+channel.close()
