@@ -39,7 +39,7 @@ class Channel:
 
         # Subscribe to the other sticker pack so we can read it
         print('[Client "' + self.client_id + '"] Subscribing to other sticker pack...')
-        attempt = 0
+        attempt = 1
         while True:
             try:
                 print('[Client "' + self.client_id + '"] Attempt ' + str(attempt) + '...')
@@ -63,20 +63,17 @@ class Channel:
         os.mkdir(path)
 
         # Construct the data
-        data = self.sequence_number.to_bytes(4, 'big') + data
+        block_size = 32768  # = 512 * 512 // 8
+        no_of_stickers = ((4 + len(data)) + block_size - 1) // block_size
+        data = self.sequence_number.to_bytes(3, 'big') + no_of_stickers.to_bytes(1, 'big') + data
 
         # Encode the data into stickers
-        block_size = 512 * 512 // 8
         for i, block_start in enumerate(range(0, len(data), block_size)):
             block = data[block_start:block_start + block_size]
-            encode_sticker(os.path.join(path, f'{i + 1}.webp'), block)
+            encode_sticker(os.path.join(path, f'{i + 1000}.webp'), block)
 
         # Transmit the data
         self.client.loop.run_until_complete(self.my_pack.add_from_directory(path))
-
-        # self.client.loop.run_until_complete(self.my_pack.refresh())
-        # self.client.loop.run_until_complete(self.download(self.my_pack.stickers.documents[1], './test'))
-        # print(decode_image('test.webp'))
 
         # Delete the directory with the stickers
         shutil.rmtree(path)
@@ -85,10 +82,12 @@ class Channel:
         path = os.path.join('./', 'message_sticker_files/')
         os.mkdir(path)
         while True:
-            print('Attempting to fetch data...')
-
-            # Fetch the sticker pack
-            self.client.loop.run_until_complete(self.other_pack.refresh())
+            # Fetch the sticker pack. Return 'None' if the sticker pack no longer exists
+            try:
+                self.client.loop.run_until_complete(self.other_pack.refresh())
+            except:
+                shutil.rmtree(path)
+                return None
 
             # Check if the sticker pack actually contains data
             if len(self.other_pack.stickers.documents) > 1:
@@ -97,7 +96,15 @@ class Channel:
 
                 # Decode the first sticker of the received sticker pack
                 content = decode_image('./message_sticker_files/1.webp')
-                received_sequence_number = int.from_bytes(content[:4], 'big')
+                received_sequence_number = int.from_bytes(content[:3], 'big')
+                received_no_of_stickers = int.from_bytes(content[3:4], 'big')
+
+                # Check if the number of stickers is correct. Otherwise, wait until next round and remove file
+                if received_no_of_stickers + 1 != len(self.other_pack.stickers.documents):
+                    os.remove('./message_sticker_files/1.webp')
+                    time.sleep(5)
+                    continue
+
                 result = content[4:]
 
                 # Check if the newly received data is of a new message
@@ -105,13 +112,16 @@ class Channel:
                     # Decode the received data
                     for i in range(2, len(self.other_pack.stickers.documents)):
                         self.client.loop.run_until_complete(self.download(
-                            self.other_pack.stickers.documents[1], './message_sticker_files/' + str(i)))
+                            self.other_pack.stickers.documents[i], './message_sticker_files/' + str(i)))
 
                         result += decode_image('./message_sticker_files/' + str(i) + '.webp')
 
                     # Increment our own sequence number
                     self.sequence_number = received_sequence_number + 1
                     break
+
+                # If the sequence number was incorrect, delete the file
+                os.remove('./message_sticker_files/1.webp')
 
             # Wait 5 seconds
             time.sleep(5)

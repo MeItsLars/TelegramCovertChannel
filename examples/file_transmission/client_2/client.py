@@ -1,3 +1,5 @@
+import os
+
 from covertchannel.channel import Channel
 import json
 
@@ -16,18 +18,10 @@ other_client_id = client_ids['client_1']
 channel = Channel(client_id, api_id, api_hash, other_client_id)
 channel.initialize()
 
-while True:
-    result = channel.receive()
-    if result is None:
-        print('The other party has stopped the communication.')
-        break
+data = channel.receive()
+with open('./file.txt', 'wb') as file:
+    file.write(data)
 
-    print('Received: "' + result.decode() + '"\n')
-
-    data = input('Please enter a message to send (or "Stop" to stop):\n')
-    if data == 'Stop':
-        break
-
-    channel.send(data.encode())
-
+input("Press enter to continue")
 channel.close()
+os.remove('./file.txt')

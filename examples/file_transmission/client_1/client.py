@@ -16,18 +16,9 @@ other_client_id = client_ids['client_2']
 channel = Channel(client_id, api_id, api_hash, other_client_id)
 channel.initialize()
 
-while True:
-    data = input('Please enter a message to send (or "Stop" to stop):\n')
-    if data == 'Stop':
-        break
+with open('./file.txt', 'rb') as file:
+    data = file.read()
+    channel.send(data)
 
-    channel.send(data.encode())
-
-    result = channel.receive()
-    if result is None:
-        print('The other party has stopped the communication.')
-        break
-
-    print('Received: "' + result.decode() + '"\n')
-
+input("Press enter to continue")
 channel.close()
