@@ -22,7 +22,9 @@ def encode_sticker(path, data: bytes):
 
         bitstring = ''.join(format(byte, '08b') for byte in data)
         bits = [int(c) for c in bitstring]
-        bits.append(2)
+
+        if len(bits) < 512 * 512:
+            bits.append(2)
         a_pixels = np.array(a_pixels) + (np.pad(bits, (0, (512*512)-len(bits)), 'constant', constant_values=(0, )) * -1)
 
         a_channel.putdata(a_pixels)

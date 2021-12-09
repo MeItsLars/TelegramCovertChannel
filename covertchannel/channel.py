@@ -66,8 +66,10 @@ class Channel:
         data = self.sequence_number.to_bytes(4, 'big') + data
 
         # Encode the data into stickers
-        # TODO: SUPPORT DATA ENCODING FOR MULTIPLE STICKERS
-        encode_sticker(os.path.join(path, '1.webp'), data)
+        block_size = 512 * 512 // 8
+        for i, block_start in enumerate(range(0, len(data), block_size)):
+            block = data[block_start:block_start + block_size]
+            encode_sticker(os.path.join(path, f'{i + 1}.webp'), block)
 
         # Transmit the data
         self.client.loop.run_until_complete(self.my_pack.add_from_directory(path))
