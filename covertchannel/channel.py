@@ -11,8 +11,31 @@ from covertchannel.steganography import encode_sticker, decode_image
 
 
 class Channel:
+    """
+    Represents a communication channel between two parties
+
+    Attributes:
+        client_id: String representing the ID of this client
+        api_id: Integer representing the api ID, used for contacting the Telegram API
+        api_hash: Used for contacting the Telegram API
+        other_client_id: String representing the ID of the (other) client we're communicating with
+
+    Methods:
+        initialize: Initializes and starts the communication channel
+        download: Downloads media from Telegram
+        send: Converts the input to binary data, encodes it in stickers, and updates the sticker pack
+        receive: Halting method that waits until the other client has sent new data, then returns this data
+        close: Closes the communication channel with the other client
+    """
 
     def __init__(self, client_id: str, api_id: int, api_hash: str, other_client_id: str):
+        """
+        Constructs the channel
+        :param client_id: The ID of this client
+        :param api_id: Used for contacting the Telegram API
+        :param api_hash: Used for contacting the Telegram API
+        :param other_client_id: The ID of the (other) client we're communicating with
+        """
         # Create client and client IDs
         self.client_id = client_id
         self.other_client_id = other_client_id
@@ -24,6 +47,10 @@ class Channel:
         self.sequence_number = 0
 
     def initialize(self):
+        """
+        Initializes this channel by creating a sticker pack and subscribing to the other clients' sticker pack
+        :return: Nothing
+        """
         # Initialize channel
         print('[Client "' + self.client_id + '"] Initializing channel...')
         self.client.start()
@@ -52,9 +79,20 @@ class Channel:
                 time.sleep(5)
 
     async def download(self, sticker, file):
+        """
+        Downloads a sticker from Telegram and saves it to a file
+        :param sticker: The sticker we want to download
+        :param file: The file we want to store the sticker in
+        :return: Nothing
+        """
         await self.client.download_media(sticker, file=file)
 
     def send(self, data: bytes):
+        """
+        Sends the given data to the other client using encoding in stickers
+        :param data: The data we want to send
+        :return: Nothing
+        """
         # Clear the current pack
         self.client.loop.run_until_complete(self.my_pack.clear())
 
@@ -79,6 +117,10 @@ class Channel:
         shutil.rmtree(path)
 
     def receive(self):
+        """
+        Halting method that waits until the other client has sent new data, then returns it
+        :return: None if the other client closed the communication, the data if it sent new data
+        """
         path = os.path.join('./', 'message_sticker_files/')
         os.mkdir(path)
         while True:
@@ -130,21 +172,51 @@ class Channel:
         return result
 
     def close(self):
+        """
+        Closes the communication channel
+        :return: Nothing
+        """
         print('[Client "' + self.client_id + '"] Closing channel...')
         self.client.loop.run_until_complete(self.my_pack.delete())
         print('[Client "' + self.client_id + '"] Session closed!')
 
 
 class StickerPack:
+    """
+    Represents a Telegram sticker pack
+
+    Attributes:
+        client: The Telegram client object
+        id: The ID of this sticker pack
+        stickers: The list of (unsynchronized) stickers in this sticker pack
+
+    Methods:
+        create: Creates this sticker pack on Telegram
+        refresh: Synchronizes the stickers in this sticker pack with the 'stickers' attribute
+        clear: Clears this sticker pack of all stickers
+        add_from_directory: Adds all files in a given directory as stickers for this sticker pack
+        delete: Deletes this sticker pack from Telegram
+        get_url: Returns the URL of this sticker pack on Telegram
+    """
+
     URL_PREFIX = "https://t.me/addstickers/"
     PREFIX = "RU_TCC_"
 
     def __init__(self, client: TelegramClient, pack_id: str):
+        """
+        Initializes this class
+        :param client: The Telegram client object
+        :param pack_id: The ID of this pack
+        """
         self.client = client
         self.id = StickerPack.PREFIX + pack_id
         self.stickers = None
 
     async def create(self):
+        """
+        Creates a new sticker pack on telegram using communication with the Stickers bot
+        :return: Nothing
+        """
         await self.client.send_message('@Stickers', '/newpack')
         await self.client.send_message('@Stickers', self.id)
         await self.client.send_file('@Stickers',
@@ -156,6 +228,10 @@ class StickerPack:
         await self.client.send_message('@Stickers', self.id)
 
     async def refresh(self):
+        """
+        Synchronizes the stickers for this sticker pack on Telegram with the 'stickers' attribute
+        :return: Nothing
+        """
         # Load all installed sticker packs and fetch this pack
         result_sticker_set = None
         sticker_sets = await self.client(GetAllStickersRequest(0))
@@ -172,6 +248,10 @@ class StickerPack:
         ))
 
     async def clear(self):
+        """
+        Clears this sticker pack of all stickers except the first
+        :return: Nothing
+        """
         # Refresh the sticker pack
         await self.refresh()
         # Delete all stickers except the initial one
@@ -184,6 +264,11 @@ class StickerPack:
         await self.refresh()
 
     async def add_from_directory(self, path):
+        """
+        Adds all files in the given directory as stickers to the sticker pack
+        :param path: The path to the directory that the files are stored in
+        :return: Nothing
+        """
         await self.client.send_message('@Stickers', '/addsticker')
         for sticker in os.listdir(path):
             await self.client.send_message('@Stickers', self.id)
@@ -194,9 +279,17 @@ class StickerPack:
         await self.client.send_message('@Stickers', '/done')
 
     async def delete(self):
+        """
+        Deletes this sticker pack from Telegram
+        :return: Nothing
+        """
         await self.client.send_message('@Stickers', '/delpack')
         await self.client.send_message('@Stickers', self.id)
         await self.client.send_message('@Stickers', 'Yes, I am totally sure.')
 
     def get_url(self) -> str:
+        """
+        Retrieves the URL of this sticker pack on Telegram
+        :return: The Telegram URL of this sticker pack
+        """
         return StickerPack.URL_PREFIX + self.id
